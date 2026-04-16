@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import * as readline from 'readline';
+import { execSync } from 'child_process';
 
 const DEFAULTS = {
   url: 'http://localhost:5173',
@@ -47,6 +48,22 @@ const confirm = async (question: string, defaultYes = true): Promise<boolean> =>
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+function detectPackageManager(cwd: string): 'bun' | 'pnpm' | 'yarn' | 'npm' {
+  if (existsSync(join(cwd, 'bun.lockb')) || existsSync(join(cwd, 'bun.lock'))) return 'bun';
+  if (existsSync(join(cwd, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (existsSync(join(cwd, 'yarn.lock'))) return 'yarn';
+  return 'npm';
+}
+
+function getInstallCommand(pm: 'bun' | 'pnpm' | 'yarn' | 'npm'): string {
+  switch (pm) {
+    case 'bun': return 'bun add -D vite-refresh-zen';
+    case 'pnpm': return 'pnpm add -D vite-refresh-zen';
+    case 'yarn': return 'yarn add -D vite-refresh-zen';
+    case 'npm': return 'npm install -D vite-refresh-zen';
+  }
+}
 
 function printHelp() {
   console.log(`
@@ -248,7 +265,7 @@ async function main() {
     }
   }
 
-  // Step 4: Check if package is installed
+  // Step 4: Install package if needed
   console.log('\n' + yellow('4. Dependencies'));
   const pkgPath = join(cwd, 'package.json');
   if (existsSync(pkgPath)) {
@@ -257,7 +274,15 @@ async function main() {
     if (deps['vite-refresh-zen']) {
       console.log(dim('   vite-refresh-zen already installed'));
     } else {
-      console.log(dim('   Run: bun add -D vite-refresh-zen'));
+      const pm = detectPackageManager(cwd);
+      const cmd = getInstallCommand(pm);
+      console.log(dim(`   Installing with ${pm}...`));
+      try {
+        execSync(cmd, { cwd, stdio: 'inherit' });
+        console.log(green('   ✓ Installed vite-refresh-zen'));
+      } catch {
+        console.log(dim(`   Failed to install. Run manually: ${cmd}`));
+      }
     }
   }
 
