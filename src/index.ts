@@ -26,6 +26,27 @@ interface PendingUpdate {
   timestamp: number;
 }
 
+const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+function getTimestamp(): string {
+  const now = new Date();
+  let hours = now.getHours();
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
+function toRelativePath(filePath: string, root: string): string {
+  if (filePath.startsWith(root)) {
+    return filePath.slice(root.length);
+  }
+  return filePath;
+}
+
 export function refreshZen(options: RefreshZenOptions = {}): Plugin {
   const {
     basePath = '/__zen',
@@ -37,10 +58,11 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
   let pendingUpdates: PendingUpdate[] = [];
   let server: ViteDevServer | null = null;
   let autoResumeTimer: ReturnType<typeof setTimeout> | null = null;
+  let root = process.cwd();
 
-  const logger = (msg: string) => {
+  const logger = (type: string, msg: string) => {
     if (log) {
-      console.log(`[refresh-zen] ${msg}`);
+      console.log(`${dim(getTimestamp())} ${green('[refresh-zen]')} ${cyan(`(${type})`)} - ${msg}`);
     }
   };
 
@@ -66,7 +88,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
     if (!paused) {
       paused = true;
       pendingUpdates = [];
-      logger('Paused - file changes will be batched');
+      logger('paused', 'file changes will be batched');
     }
     return { paused, pending: pendingUpdates.length };
   };
@@ -78,10 +100,10 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
       paused = false;
 
       if (count > 0) {
-        logger(`Resuming with ${count} pending changes - triggering full reload`);
+        logger('resumed', `${count} pending changes - triggering full reload`);
         server.ws.send({ type: 'full-reload' });
       } else {
-        logger('Resumed - no pending changes');
+        logger('resumed', 'no pending changes');
       }
 
       pendingUpdates = [];
@@ -100,7 +122,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
     const count = pendingUpdates.length;
     pendingUpdates = [];
     paused = false;
-    logger(`Discarded ${count} pending changes`);
+    logger('discarded', `${count} pending changes`);
     return { discarded: count };
   };
 
@@ -109,6 +131,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
 
     configureServer(srv) {
       server = srv;
+      root = srv.config.root;
 
       // Middleware for control endpoints
       srv.middlewares.use((req, res, next) => {
@@ -150,32 +173,23 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
         }
       });
 
-      logger(`Control endpoints available at ${basePath}/*`);
-      logger(`  ${basePath}/pause   - Pause HMR updates`);
-      logger(`  ${basePath}/resume  - Apply pending changes (full reload)`);
-      logger(`  ${basePath}/status  - Check current state`);
-      logger(`  ${basePath}/discard - Discard pending changes`);
-      logger(`  ${basePath}/toggle  - Toggle pause state`);
+      logger('ready', `endpoints at ${basePath}/*`);
     },
 
     handleHotUpdate(ctx: HmrContext) {
       if (!paused) {
-        // Normal HMR flow
         return;
       }
 
-      // Store the pending update
       pendingUpdates.push({
         file: ctx.file,
         timestamp: ctx.timestamp,
       });
 
-      logger(`Buffered: ${ctx.file} (${pendingUpdates.length} pending)`);
+      logger('buffered', `${toRelativePath(ctx.file, root)} (x${pendingUpdates.length})`);
 
-      // Schedule auto-resume if configured
       scheduleAutoResume();
 
-      // Return empty array to suppress HMR update
       return [];
     },
   };
