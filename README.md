@@ -7,19 +7,20 @@ Perfect for when AI tools (like Claude Code) are editing multiple files rapidly 
 ## Quick Start
 
 ```bash
-bunx refresh-zen
+bunx vite-refresh-zen
 ```
 
 This interactive installer will:
 1. Ask for your dev server URL
 2. Configure Claude Code hooks (`.claude/settings.json`)
 3. Add the plugin to your `vite.config.ts`
+4. Install the package as a dev dependency
 
 ### Non-interactive
 
 ```bash
-bunx refresh-zen -y                              # Accept all defaults
-bunx refresh-zen -y --url=https://app.localhost  # Custom URL
+bunx vite-refresh-zen -y                              # Accept all defaults
+bunx vite-refresh-zen -y --url=https://app.localhost  # Custom URL
 ```
 
 ## Manual Install
