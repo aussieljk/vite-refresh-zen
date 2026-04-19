@@ -27,8 +27,16 @@ interface PendingUpdate {
 }
 
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
-const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+function colorType(type: string): string {
+  switch (type) {
+    case 'paused': return red(`(${type})`);
+    case 'resumed': return green(`(${type})`);
+    default: return dim(`(${type})`);
+  }
+}
 
 function getTimestamp(): string {
   const now = new Date();
@@ -62,7 +70,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
 
   const logger = (type: string, msg: string) => {
     if (log) {
-      console.log(`${dim(getTimestamp())} ${green('[refresh-zen]')} ${cyan(`(${type})`)} - ${msg}`);
+      console.log(`${dim(getTimestamp())} ${green('[refresh-zen]')} ${colorType(type)} - ${msg}`);
     }
   };
 
@@ -173,7 +181,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
         }
       });
 
-      logger('ready', `endpoints at ${basePath}/*`);
+      logger('ready', `endpoints at ${dim(basePath + '/*')}`);
     },
 
     handleHotUpdate(ctx: HmrContext) {
@@ -186,7 +194,7 @@ export function refreshZen(options: RefreshZenOptions = {}): Plugin {
         timestamp: ctx.timestamp,
       });
 
-      logger('buffered', `${toRelativePath(ctx.file, root)} (x${pendingUpdates.length})`);
+      logger('buffered', `${dim(toRelativePath(ctx.file, root))} (x${pendingUpdates.length})`);
 
       scheduleAutoResume();
 
