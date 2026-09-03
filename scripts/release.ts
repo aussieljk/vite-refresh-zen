@@ -150,9 +150,17 @@ const released = version();
 
 step(`Publishing ${pkg}@${released}`);
 // --access public so a scoped package does not default to a restricted publish.
+//
+// --tag latest is not the redundant default it looks like. npm refuses to
+// publish a prerelease version without an explicit --tag ("You must specify a
+// tag using --tag when publishing a prerelease version") — it will not quietly
+// move `latest` onto an rc. Since every automatic release here *is* a
+// prerelease, and rc-as-latest is the deliberate choice, the flag has to be
+// spelled out on every publish.
+//
 // prepublishOnly builds the tarball; no --provenance flag, npm attaches it by
 // itself over OIDC wherever the repo is public.
-run(['npm', 'publish', '--access', 'public']);
+run(['npm', 'publish', '--access', 'public', '--tag', 'latest']);
 
 // The lockfile records this package's own version, so skipping the refresh
 // leaves the next `bun install --frozen-lockfile` failing in CI.
