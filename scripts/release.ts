@@ -15,13 +15,28 @@
  * Which version ships:
  *
  *   package.json holds a version npm does not have   →  publish that version as-is
- *   npm already has it                               →  bump the patch, publish that
+ *   npm already has it                               →  bump the prerelease, publish that
  *
  * The first case is what makes a hand-edited bump work. Someone who edits
- * package.json to 0.3.0 and pushes gets 0.3.0, not 0.2.4 — and a re-run after a
- * half-failed release republishes nothing, because by then npm has the version
- * and the bump moves past it. Both directions are idempotent, which is the
- * property that matters when the trigger is "every push to master".
+ * package.json to 0.3.0 and pushes gets 0.3.0, not a prerelease of it — and a
+ * re-run after a half-failed release republishes nothing, because by then npm
+ * has the version and the bump moves past it. Both directions are idempotent,
+ * which is the property that matters when the trigger is "every push to master".
+ *
+ * The automatic bump is `prerelease --preid=rc`, not `patch`, because a push to
+ * master is not a considered release — it is whatever just landed. So 0.1.0
+ * becomes 0.1.1-rc.0, then 0.1.1-rc.1, and the base version does not move until
+ * someone deliberately promotes it:
+ *
+ *   npm version patch --no-git-tag-version   # 0.1.1-rc.3 → 0.1.1
+ *
+ * and pushes that. Semver sorts 0.1.1-rc.0 above 0.1.0 and below 0.1.1, so an rc
+ * is a smaller step than a patch — which is the point. It is the same shape as
+ * the 0.0.1-N series ljkui runs and the 0.0.1-canary.N series uight runs.
+ *
+ * These publish to the `latest` dist-tag, deliberately: `npm i <pkg>` gives the
+ * newest rc. Nothing here is a stable-versus-preview split; the newest thing is
+ * the thing.
  *
  * There is no npm token anywhere. In CI the publish authenticates by trusted
  * publishing: the job's `id-token: write` permission mints an OIDC token that npm
@@ -125,8 +140,8 @@ const published = await publishedVersions(pkg);
 const current = version();
 
 if (published.has(current)) {
-  step(`npm already has ${pkg}@${current} — bumping the patch`);
-  run(['npm', 'version', 'patch', '--no-git-tag-version']);
+  step(`npm already has ${pkg}@${current} — bumping the rc`);
+  run(['npm', 'version', 'prerelease', '--preid', 'rc', '--no-git-tag-version']);
 } else {
   step(`npm does not have ${pkg}@${current} yet — publishing it as-is`);
 }
