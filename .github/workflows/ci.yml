@@ -1,0 +1,42 @@
+# GENERATED FILE — DO NOT EDIT.
+# Authored in TypeScript at ci/workflows.ts; run `bun run workflows` to regenerate.
+# CI fails if this file drifts from the TypeScript source (`bun run workflows:check`).
+
+name: CI
+"on":
+  pull_request:
+    branches:
+      - master
+concurrency:
+  group: "ci-${{ github.ref }}"
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 100
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Cache bun store
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: "bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}"
+          restore-keys: "bun-${{ runner.os }}-"
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Workflows in sync
+        run: bun run workflows:check
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Build
+        run: bun run build
